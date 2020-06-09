@@ -10,7 +10,7 @@ def readXYZ(filepath):
 	atoms = []
 	with open(filepath, 'r') as f:
 		n = int(f.readline())
-		label = float(f.readline()) * -1
+		label = float(f.readline()) * 627.509 
 		for line in f.readlines():
 			line = line.split()
 			xyz.append(line[1:])
@@ -94,7 +94,7 @@ def getXYZList(path):
 				line = f.readline()
 				try:
 					bbcp = float(line)
-					if bbcp < 0.1 and bbcp > -1.0:
+					if bbcp < 1.0 and bbcp > 0:
 						xyzList.append(entry)
 				except:
 					continue

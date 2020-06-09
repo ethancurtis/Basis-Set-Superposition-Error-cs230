@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import torch
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import os
 
@@ -40,7 +42,7 @@ def plot_history(history, start_epoch=0, size=None):
     plt.xlim(np.min(epoch), np.max(epoch))
 
     plt.legend()
-    plt.show()
+    plt.savefig('Model_training.png',bbox_inches = 'tight')
 
 def train_model(model, loss_function, optimizer, train_dataloader, val_dataloader, n_epochs=1000, callbacks=[], history=None, output="long", device="cpu"):
     if history is None:
@@ -73,7 +75,7 @@ def train_model(model, loss_function, optimizer, train_dataloader, val_dataloade
         for batch in train_dataloader:
             x_batch, target = model.unpack_batch(batch)#, device=device)
             prediction = model(x_batch)
-            loss = loss_function(prediction, target)
+            loss = loss_function(prediction.view(-1,1), target.view(-1,1))
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -89,7 +91,7 @@ def train_model(model, loss_function, optimizer, train_dataloader, val_dataloade
         for batch in val_dataloader:
             x_batch, target = model.unpack_batch(batch)#, device=device)
             prediction = model(x_batch)
-            loss = loss_function(prediction, target)
+            loss = loss_function(prediction.view(-1,1), target.view(-1,1))
             
             n_batch = target.shape[0]
             cum_loss += loss.item() * n_batch
@@ -121,7 +123,7 @@ def save_model(path, model, optimizer=None, history=None, overwrite=False):
     Save model dict at path
     """
     model_dict = {
-        "model":model,
+        "model":model.state_dict(),
         "optimizer":optimizer,
         "history":history
     }

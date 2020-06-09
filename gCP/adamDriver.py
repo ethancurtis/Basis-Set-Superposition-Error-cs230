@@ -80,10 +80,15 @@ def getGcpEnergies(path, paramFile, minibatch):
 
 def adamUpdate(params, grads, v, s, t, learnRate = 0.01, beta1 = 0.9, beta2 = 0.999, eps = 1e-8):
 	v = beta1 * v + (1 - beta1) * grads
-	v = v / (1 - beta1**t)
+	#v = v / (1 - beta1**t)
 	s = beta2 * s + (1 - beta2) * grads * grads
-	s = s / (1 - beta2**t)
-	params -= learnRate * v / np.sqrt(s + eps)
+	#s = s / (1 - beta2**t)
+	params -= learnRate * v / (np.sqrt(s) + eps)
+	#params -= learnRate * grads
+	if params[1] < 0.001:
+		params[1] = 0.001
+	if params[0] < 0.001:
+		params[0] = 0.001
 	return params, v, s
 
 def computeParamGrads(grads, errors):
@@ -100,7 +105,7 @@ def getLabels(path,filenames):
 			f.readline()
 			line = f.readline()
 			try:
-				label = -1 * float(line)
+				label = float(line)
 				if abs(label) > 1:
 					badxyzs.append(xyz)
 				else:
@@ -207,11 +212,17 @@ def evaluateEnergy(paramFilePath, path, doEmiss = False, doZa = False):
 	print("MSE ", mse)
 	
 
-def adamOptimize(path, params, learnRate = 0.01, beta1 = 0.9, beta2 = 0.999, eps = 1e-8, batchSize = 64, numEpochs = 100, doEmiss = False, doZa = False, paramFile = 'params.txt', convthre = 1e-5):
+def adamOptimize(path, params, learnRate = 0.01, beta1 = 0.9, beta2 = 0.999, eps = 1e-8, batchSize = 64, numEpochs = 100, doEmiss = False, doZa = False, paramFile = 'params.txt', convthre = 1e-5, verbose = False):
+	if verbose:
+		print("Collecting file names")
 	filenames = getXYZList(path)
 	v = np.zeros(params.shape)
 	s = np.zeros(params.shape)
+	if verbose:
+		print("generating A and B xyzs")
 	createABXYZs(filenames,path)
+	if verbose:
+		print("Collecting labels")
 	labels = getLabels(path, filenames)
 	t = 0
 	previousCost = 0
@@ -224,16 +235,21 @@ def adamOptimize(path, params, learnRate = 0.01, beta1 = 0.9, beta2 = 0.999, eps
 		
 		for minibatch, mbLabel in zip(minibatches, mbLabels):
 			gcp = getGcpEnergies(path, paramFile, minibatch)
-			#print("gcp e",gcp)
 			gcpGrad = getGcpGrads(path, paramFile, minibatch, doEmiss, doZa)
 			errors = computeErrors(mbLabel, gcp)	
-			#print("errors ",errors)
 			paramGrad = computeParamGrads(gcpGrad,errors)	
 			t += 1
 			params, v, s = adamUpdate(params, paramGrad, v, s, t, learnRate, beta1, beta2, eps)
 			costTotal += 0.5 * np.sum(errors**2)
-			#print("minibatch cost", costTotal)
 			writeParamFile(params, paramFile, doEmiss, doZa)
+			if verbose:
+				print("gcp e",gcp)
+				print("errors ",errors)
+				print("param grad",paramGrad)
+				print("params ",params)
+				print("v",v)
+				print("s",s)
+				print("minibatch cost", 0.5 * np.sum(errors**2))
 	
 		print("Cost after epoch %d is %f" %(i, costTotal / len(filenames)))
 		if abs(costTotal-previousCost) < convthre:
@@ -243,15 +259,33 @@ def adamOptimize(path, params, learnRate = 0.01, beta1 = 0.9, beta2 = 0.999, eps
 	
 	writeParamFile(params, paramFile, doEmiss, doZa)
 
-
+#path = '/home/curtie/4_bsse/0_bbcp_database/5_dev_set/raw/'
+#paramFile = '/home/curtie/4_bsse/1_gcp/params.txt'
+#params = np.array([0.1290, 1.1526, 1.1549, 1.1763])
+#writeParamFile(params,paramFile)
+#evaluateEnergy(paramFile, path)
+#
 #path = '/home/curtie/4_bsse/0_bbcp_database/1_bbcp_database/raw/'
 #path = '/home/curtie/4_bsse/1_gcp/3_calc_gcp_on_database/'
-#params = np.array([0.1290, 1.1526, 1.1549, 1.1763])
-#adamOptimize(path, params, numEpochs = 10, beta2 = 0.9)
+#path = '/home/curtie/4_bsse/0_bbcp_database/5_dev_set/raw/'
+#params = np.array([0.2571, 0.0010, 1.1393, 1.0684])
+#adamOptimize(path, params, numEpochs = 10, beta1 = 0.95, beta2 = 0.99, learnRate=0.005,verbose=False)
+#
+#
+#path = '/home/curtie/4_bsse/0_bbcp_database/5_dev_set/raw/'
+#paramFile = '/home/curtie/4_bsse/1_gcp/params.txt'
+#evaluateEnergy(paramFile, path)
+#paramFile = '/home/curtie/4_bsse/1_gcp/original_params.txt'
+#evaluateEnergy(paramFile, path)
 
-
-path = '/home/curtie/4_bsse/0_bbcp_database/5_dev_set/raw/'
-paramFile = '/home/curtie/4_bsse/1_gcp/params.txt'
-evaluateEnergy(paramFile, path)
-paramFile = '/home/curtie/4_bsse/1_gcp/original_params.txt'
-evaluateEnergy(paramFile, path)
+#path = '/home/curtie/4_bsse/0_bbcp_database/5_dev_set/raw/'
+#path = '/home/curtie/4_bsse/0_bbcp_database/1_bbcp_database/raw/'
+path = '/home/curtie/4_bsse/0_bbcp_database/6_test_set/raw/'
+print("epoch 0 params")
+evaluateEnergy("epoch_0params.txt",path)
+#print("epoch 1 params")
+#evaluateEnergy("epoch_1params.txt",path)
+#print("epoch 2 params")
+#evaluateEnergy("epoch_2params.txt",path)
+print("default params")
+evaluateEnergy("default_params.txt",path)
